@@ -24,7 +24,7 @@ BLU Teeth Whitening Kit - Free Whitening Toothpaste + Free Snow Serum Whitening 
 BLU Teeth Whitening Kit - Free Whitening Toothpaste + Free Snow Serum Whitening Pen + 1 Year Warranty (Worth $230),BLU-KIT,BLU-PASTE,BLU Whitening Toothpaste,1,No
 BLU Teeth Whitening Kit - Free Whitening Toothpaste + Free Snow Serum Whitening Pen + 1 Year Warranty (Worth $230),BLU-KIT,SNOW-PEN,Snow Serum Whitening Pen,1,No
 Snow Serum Whitening Pen - Value Pack - Bundle of Three,SNOW-PEN-3PK,SNOW-PEN,Snow Serum Whitening Pen,3,No
-I will skip this,SKIP,SKIP,Skipped customer opt-out,0,Yes`;
+I will skip this,SKIP,SKIP,Option text to ignore,0,No`;
 
 const defaultGoogleSheetUrl =
   "https://docs.google.com/spreadsheets/d/1HDuuRtvyMHS6ekOprhrAGlpyQ4748_SoCxbtRM-lcIs/edit?gid=0#gid=0";
@@ -231,6 +231,8 @@ function normalizeSku(value) {
 function normalizeText(value) {
   return String(value || "")
     .toLowerCase()
+    .replace(/\bi\s+will\s+skip\s+this\b/g, " ")
+    .replace(/\bskip\s+this\b/g, " ")
     .replace(/\([^)]*\)/g, " ")
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, " ")
@@ -254,6 +256,158 @@ function extractPostalCode(address) {
   return matches ? matches[matches.length - 1] : "";
 }
 
+const malaysiaPostcodePrefixes = [
+  { names: ["johor"], ranges: [[79, 86]] },
+  { names: ["kedah"], ranges: [[5, 9]] },
+  { names: ["kelantan"], ranges: [[15, 18]] },
+  { names: ["melaka", "malacca"], ranges: [[75, 78]] },
+  { names: ["negeri sembilan"], ranges: [[70, 73]] },
+  { names: ["pahang"], ranges: [[25, 28], [39, 39], [49, 49], [69, 69]] },
+  { names: ["penang", "pulau pinang"], ranges: [[10, 14]] },
+  { names: ["perak"], ranges: [[30, 36], [39, 39]] },
+  { names: ["perlis"], ranges: [[1, 2]] },
+  { names: ["sabah", "labuan"], ranges: [[87, 91]] },
+  { names: ["sarawak"], ranges: [[93, 98]] },
+  { names: ["selangor"], ranges: [[40, 48], [63, 64]] },
+  { names: ["kuala lumpur", "kl"], ranges: [[50, 60]] },
+  { names: ["putrajaya"], ranges: [[62, 62]] },
+  { names: ["terengganu"], ranges: [[20, 24]] },
+];
+
+const usZipPrefixes = [
+  { names: ["alabama", "al"], ranges: [[350, 369]] },
+  { names: ["alaska", "ak"], ranges: [[995, 999]] },
+  { names: ["arizona", "az"], ranges: [[850, 865]] },
+  { names: ["arkansas", "ar"], ranges: [[716, 729], [755, 755]] },
+  { names: ["california", "ca"], ranges: [[900, 961]] },
+  { names: ["colorado", "co"], ranges: [[800, 816]] },
+  { names: ["connecticut", "ct"], ranges: [[60, 69]] },
+  { names: ["delaware", "de"], ranges: [[197, 199]] },
+  { names: ["district of columbia", "dc"], ranges: [[200, 205]] },
+  { names: ["florida", "fl"], ranges: [[320, 349]] },
+  { names: ["georgia", "ga"], ranges: [[300, 319], [398, 399]] },
+  { names: ["hawaii", "hi"], ranges: [[967, 968]] },
+  { names: ["idaho", "id"], ranges: [[832, 838]] },
+  { names: ["illinois", "il"], ranges: [[600, 629]] },
+  { names: ["indiana", "in"], ranges: [[460, 479]] },
+  { names: ["iowa", "ia"], ranges: [[500, 528]] },
+  { names: ["kansas", "ks"], ranges: [[660, 679]] },
+  { names: ["kentucky", "ky"], ranges: [[400, 427]] },
+  { names: ["louisiana", "la"], ranges: [[700, 714]] },
+  { names: ["maine", "me"], ranges: [[39, 49]] },
+  { names: ["maryland", "md"], ranges: [[206, 219]] },
+  { names: ["massachusetts", "ma"], ranges: [[10, 27], [55, 55]] },
+  { names: ["michigan", "mi"], ranges: [[480, 499]] },
+  { names: ["minnesota", "mn"], ranges: [[550, 567]] },
+  { names: ["mississippi", "ms"], ranges: [[386, 397]] },
+  { names: ["missouri", "mo"], ranges: [[630, 658]] },
+  { names: ["montana", "mt"], ranges: [[590, 599]] },
+  { names: ["nebraska", "ne"], ranges: [[680, 693]] },
+  { names: ["nevada", "nv"], ranges: [[889, 898]] },
+  { names: ["new hampshire", "nh"], ranges: [[30, 38]] },
+  { names: ["new jersey", "nj"], ranges: [[70, 89]] },
+  { names: ["new mexico", "nm"], ranges: [[870, 884]] },
+  { names: ["new york", "ny"], ranges: [[5, 5], [100, 149]] },
+  { names: ["north carolina", "nc"], ranges: [[270, 289]] },
+  { names: ["north dakota", "nd"], ranges: [[580, 588]] },
+  { names: ["ohio", "oh"], ranges: [[430, 459]] },
+  { names: ["oklahoma", "ok"], ranges: [[730, 749]] },
+  { names: ["oregon", "or"], ranges: [[970, 979]] },
+  { names: ["pennsylvania", "pa"], ranges: [[150, 196]] },
+  { names: ["rhode island", "ri"], ranges: [[28, 29]] },
+  { names: ["south carolina", "sc"], ranges: [[290, 299]] },
+  { names: ["south dakota", "sd"], ranges: [[570, 577]] },
+  { names: ["tennessee", "tn"], ranges: [[370, 385]] },
+  { names: ["texas", "tx"], ranges: [[750, 799], [885, 885]] },
+  { names: ["utah", "ut"], ranges: [[840, 847]] },
+  { names: ["vermont", "vt"], ranges: [[50, 59]] },
+  { names: ["virginia", "va"], ranges: [[201, 246]] },
+  { names: ["washington", "wa"], ranges: [[980, 994]] },
+  { names: ["west virginia", "wv"], ranges: [[247, 268]] },
+  { names: ["wisconsin", "wi"], ranges: [[530, 549]] },
+  { names: ["wyoming", "wy"], ranges: [[820, 831]] },
+];
+
+function textHasPlace(text, place) {
+  const escaped = place.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i").test(text);
+}
+
+function findPlaceRule(address, rules) {
+  return rules.find((rule) => rule.names.some((name) => textHasPlace(address, name)));
+}
+
+function inRanges(value, ranges) {
+  return ranges.some(([start, end]) => value >= start && value <= end);
+}
+
+function detectAddressCountry(address) {
+  const text = String(address || "");
+  const hasSingapore = textHasPlace(text, "singapore");
+  const hasMalaysia = textHasPlace(text, "malaysia") || findPlaceRule(text, malaysiaPostcodePrefixes);
+  const hasUnitedStates =
+    textHasPlace(text, "united states") ||
+    textHasPlace(text, "usa") ||
+    textHasPlace(text, "u s a") ||
+    findPlaceRule(text, usZipPrefixes);
+
+  return { hasSingapore, hasMalaysia, hasUnitedStates };
+}
+
+function validatePostalCode(address) {
+  const issues = [];
+  const text = String(address || "");
+  if (!text.trim()) return issues;
+
+  const countries = detectAddressCountry(text);
+  const countryCount = [countries.hasSingapore, countries.hasMalaysia, countries.hasUnitedStates].filter(Boolean).length;
+  if (countryCount > 1) {
+    issues.push("Address contains multiple country or state indicators; verify postal code and country.");
+    return issues;
+  }
+
+  if (countries.hasSingapore) {
+    const matches = text.match(/\b\d{6}\b/g) || [];
+    const postal = matches[matches.length - 1] || "";
+    const firstTwo = Number(postal.slice(0, 2));
+    if (!postal) {
+      issues.push("Singapore address should include a 6-digit postal code.");
+    } else if (firstTwo < 1 || firstTwo > 82) {
+      issues.push("Singapore postal code does not match Singapore postal-code range.");
+    }
+    return issues;
+  }
+
+  if (countries.hasMalaysia) {
+    const matches = text.match(/\b\d{5}\b/g) || [];
+    const postal = matches[matches.length - 1] || "";
+    if (!postal) {
+      issues.push("Malaysia address should include a 5-digit postcode.");
+      return issues;
+    }
+    const stateRule = findPlaceRule(text, malaysiaPostcodePrefixes);
+    if (stateRule && !inRanges(Number(postal.slice(0, 2)), stateRule.ranges)) {
+      issues.push("Malaysia postcode prefix does not tally with the state in the address.");
+    }
+    return issues;
+  }
+
+  if (countries.hasUnitedStates) {
+    const matches = text.match(/\b\d{5}(?:-\d{4})?\b/g) || [];
+    const zip = matches[matches.length - 1] || "";
+    if (!zip) {
+      issues.push("US address should include a 5-digit ZIP code or ZIP+4.");
+      return issues;
+    }
+    const stateRule = findPlaceRule(text, usZipPrefixes);
+    if (stateRule && !inRanges(Number(zip.slice(0, 3)), stateRule.ranges)) {
+      issues.push("US ZIP code prefix does not tally with the state in the address.");
+    }
+  }
+
+  return issues;
+}
+
 function validateClientLine(line) {
   const issues = [];
   if (!dateKey(line.date)) issues.push("Missing or invalid order date.");
@@ -264,9 +418,7 @@ function validateClientLine(line) {
   const phoneDigits = String(line.phone || "").replace(/\D/g, "");
   if (phoneDigits.length < 8 || phoneDigits.length > 15) issues.push("Phone number looks invalid.");
   if (!line.address || String(line.address).trim().length < 10) issues.push("Shipping address is missing or too short.");
-  if (/singapore/i.test(line.address || "") && !extractPostalCode(line.address)) {
-    issues.push("Singapore postal code should be 6 digits.");
-  }
+  issues.push(...validatePostalCode(line.address));
   if (!line.itemText || !looksLikeProduct(line.itemText)) issues.push("Item text does not look like a Smilefam product.");
   if (!Number.isFinite(line.qty) || line.qty <= 0) issues.push("Quantity must be greater than 0.");
   return issues;
@@ -392,7 +544,6 @@ function normalizeRule(record, index) {
   const componentName =
     getField(record, ["Component Name", "Output Item", "Pick Item", "Product Name", "Name"]) || componentSku;
   const unitsPerQty = Number(getField(record, ["Units Per Qty", "Units", "Component Qty", "Qty"]) || 1);
-  const skipRaw = getField(record, ["Skip", "Ignore", "Do Not Fulfil", "Exclude"]);
   return {
     id: `R${index + 1}`,
     alias,
@@ -401,7 +552,7 @@ function normalizeRule(record, index) {
     componentSku,
     componentName,
     unitsPerQty: Number.isFinite(unitsPerQty) ? unitsPerQty : 1,
-    skip: /^(yes|true|1|skip|ignore)$/i.test(skipRaw.trim()) || normalizeText(alias).includes("i will skip this"),
+    skip: false,
   };
 }
 
@@ -447,15 +598,6 @@ function findRules(line, rules) {
   }
 
   const norm = normalizeText(line.itemText);
-  const skipLine = norm.includes("i will skip this") || norm.includes("skip this");
-  if (skipLine) {
-    return {
-      rules: [],
-      skipped: true,
-      confidence: 1000,
-      reason: "Customer selected skip option",
-    };
-  }
 
   const scored = rules
     .map((rule) => ({ rule, score: scoreRule(norm, rule) }))
