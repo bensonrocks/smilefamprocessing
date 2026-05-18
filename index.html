@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smilefam Order Processing</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Smilefam Operations</p>
+        <h1>Order Processing</h1>
+      </div>
+      <div class="header-actions">
+        <label class="date-field">
+          Batch
+          <select id="dateMode">
+            <option value="today">Today</option>
+            <option value="single">Single date</option>
+            <option value="range">Date range</option>
+          </select>
+        </label>
+        <label class="date-field" id="singleDateField">
+          Date
+          <input id="singleDate" type="date" />
+        </label>
+        <label class="date-field hidden" id="startDateField">
+          From
+          <input id="startDate" type="date" />
+        </label>
+        <label class="date-field hidden" id="endDateField">
+          To
+          <input id="endDate" type="date" />
+        </label>
+        <button id="loadSample" type="button">Load sample</button>
+        <button id="processData" type="button" class="primary">Retrieve orders</button>
+        <button id="processSelected" type="button" class="primary" disabled>Process selected</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="summary-grid" aria-label="Order dashboard">
+        <article class="metric">
+          <span>Batch orders</span>
+          <strong id="ordersToday">0</strong>
+        </article>
+        <article class="metric">
+          <span>Batch lines</span>
+          <strong id="linesToday">0</strong>
+        </article>
+        <article class="metric">
+          <span>Matched lines</span>
+          <strong id="matchedLines">0</strong>
+        </article>
+        <article class="metric alert">
+          <span>Needs review</span>
+          <strong id="needsReview">0</strong>
+        </article>
+      </section>
+
+      <section class="inventory-section" aria-label="Inventory before orders">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Inventory Balance</p>
+            <h2>Stock Before Selected Orders</h2>
+          </div>
+          <div id="inventoryStatus" class="muted">Using Smilefam Inventory workbook basis.</div>
+        </div>
+        <div class="inventory-table-wrap">
+          <table class="inventory-table">
+            <thead>
+              <tr>
+                <th>Item type</th>
+                <th>Description</th>
+                <th>Stock before orders</th>
+                <th>Needed for batch</th>
+                <th>Projected balance</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <aside class="import-panel">
+          <div class="panel-head">
+            <h2>Imports</h2>
+          </div>
+
+          <label class="url-field">
+            <span>Client Google Sheet URL</span>
+            <input id="googleSheetUrl" type="url" />
+          </label>
+
+          <div id="fetchStatus" class="fetch-status">Click Retrieve & process orders to pull the latest sheet for the selected date.</div>
+
+          <label class="file-drop">
+            <span>Client orders CSV</span>
+            <input id="ordersFile" type="file" accept=".csv,.txt" />
+          </label>
+          <textarea id="ordersInput" spellcheck="false" placeholder="Date,Order reference,Name,Phone,Address,Item,Qty,Waybill Reference"></textarea>
+
+          <label class="file-drop">
+            <span>Master list CSV</span>
+            <input id="masterFile" type="file" accept=".csv,.txt" />
+          </label>
+          <textarea id="masterInput" spellcheck="false" placeholder="Alias,Canonical SKU,Component SKU,Component Name,Units Per Qty,Skip"></textarea>
+
+          <div class="hint">Alias, Canonical SKU, Component SKU, Component Name, Units Per Qty, Skip</div>
+        </aside>
+
+        <section class="results-panel">
+          <div class="tabs" role="tablist" aria-label="Result views">
+            <button class="tab active" type="button" data-view="orders">Client records</button>
+            <button class="tab" type="button" data-view="generated">Generated</button>
+            <button class="tab" type="button" data-view="picklist">Picklist</button>
+            <button class="tab" type="button" data-view="review">Review</button>
+            <button class="tab" type="button" data-view="labels">Labels</button>
+            <button class="tab" type="button" data-view="rules">Mapping rules</button>
+          </div>
+
+          <div class="toolbar">
+            <div id="statusText">Load CSV data to begin.</div>
+            <div class="export-actions">
+              <label class="auto-toggle">
+                <input id="excludeProcessed" type="checkbox" checked />
+                <span>Exclude processed</span>
+              </label>
+              <button id="selectVisibleOrders" type="button" disabled>Select all visible</button>
+              <button id="clearSelectedOrders" type="button" disabled>Clear selection</button>
+              <button id="exportOrders" type="button" disabled>Export orders CSV</button>
+              <button id="exportPicklist" type="button" disabled>Export picklist CSV</button>
+              <button id="exportLabels" type="button" disabled>Export labels CSV</button>
+              <button id="printLabels" type="button" disabled>Print labels</button>
+              <button id="degenerateSelected" type="button" disabled>De-generate selected</button>
+              <button id="markProcessed" type="button" disabled>Mark batch processed</button>
+            </div>
+          </div>
+
+          <div id="ordersView" class="view active">
+            <table>
+              <thead>
+                <tr>
+                  <th><input id="selectAllOrders" type="checkbox" aria-label="Select all orders" /></th>
+                  <th>Date</th>
+                  <th>Order</th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTable"></tbody>
+            </table>
+          </div>
+
+          <div id="generatedView" class="view">
+            <table>
+              <thead>
+                <tr>
+                  <th>Select</th>
+                  <th>Order</th>
+                  <th>Date</th>
+                  <th>Name</th>
+                  <th>Phone</th>
+                  <th>Address</th>
+                  <th>Generated items</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="generatedTable"></tbody>
+            </table>
+          </div>
+
+          <div id="picklistView" class="view">
+            <table>
+              <thead>
+                <tr>
+                  <th>SKU</th>
+                  <th>Item</th>
+                  <th>Units</th>
+                  <th>Orders</th>
+                </tr>
+              </thead>
+              <tbody id="picklistTable"></tbody>
+            </table>
+          </div>
+
+          <div id="reviewView" class="view">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Original free text</th>
+                  <th>Qty</th>
+                  <th>Issue</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="reviewTable"></tbody>
+            </table>
+          </div>
+
+          <div id="labelsView" class="view">
+            <div id="labelsGrid" class="labels-grid"></div>
+          </div>
+
+          <div id="rulesView" class="view">
+            <table>
+              <thead>
+                <tr>
+                  <th>Alias / permutation</th>
+                  <th>Canonical SKU</th>
+                  <th>Component</th>
+                  <th>Units per qty</th>
+                  <th>Rule</th>
+                </tr>
+              </thead>
+              <tbody id="rulesTable"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <dialog id="reviewDialog" class="review-dialog">
+      <form method="dialog">
+        <div class="dialog-head">
+          <h2>Resolve review item</h2>
+          <button id="closeReview" type="button" aria-label="Close">Close</button>
+        </div>
+        <dl class="review-details">
+          <div>
+            <dt>Order</dt>
+            <dd id="reviewOrderRef"></dd>
+          </div>
+          <div>
+            <dt>Issue</dt>
+            <dd id="reviewIssue"></dd>
+          </div>
+          <div>
+            <dt>Free text</dt>
+            <dd id="reviewFreeText"></dd>
+          </div>
+        </dl>
+        <label class="url-field">
+          <span>Process this line as</span>
+          <select id="reviewComponent"></select>
+        </label>
+        <label class="url-field">
+          <span>Units per ordered qty</span>
+          <input id="reviewUnits" type="number" min="0" step="1" />
+        </label>
+        <div class="amend-grid">
+          <label class="url-field">
+            <span>Order reference</span>
+            <input id="amendOrderRef" type="text" />
+          </label>
+          <label class="url-field">
+            <span>Name</span>
+            <input id="amendCustomer" type="text" />
+          </label>
+          <label class="url-field">
+            <span>Phone</span>
+            <input id="amendPhone" type="text" />
+          </label>
+          <label class="url-field">
+            <span>Quantity</span>
+            <input id="amendQty" type="number" min="1" step="1" />
+          </label>
+        </div>
+        <label class="url-field">
+          <span>Shipping address</span>
+          <textarea id="amendAddress" spellcheck="false"></textarea>
+        </label>
+        <label class="url-field">
+          <span>Item text</span>
+          <textarea id="amendItemText" spellcheck="false"></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button id="applyAmendment" type="button">Apply amendments</button>
+          <button id="skipReviewLine" type="button">Skip line</button>
+          <button id="applyReviewOverride" type="button" class="primary">Apply processor fix</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="processDialog" class="review-dialog">
+      <form method="dialog">
+        <div class="dialog-head">
+          <h2 id="processDialogTitle">Confirm stock depletion</h2>
+          <button id="cancelProcess" type="button" aria-label="Close">Close</button>
+        </div>
+        <p id="processImpactSummary" class="dialog-note"></p>
+        <div class="impact-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Item</th>
+                <th>Stock before</th>
+                <th>Deplete</th>
+                <th>Balance after</th>
+              </tr>
+            </thead>
+            <tbody id="processImpactTable"></tbody>
+          </table>
+        </div>
+        <div class="dialog-actions">
+          <button id="confirmProcess" type="button" class="primary">Confirm process</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="./inventory-data.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
